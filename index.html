@@ -3,65 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vivendo de Renda 2026</title>
+
+<link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<title>Invest Pro</title>
 
 <style>
 body {
+  margin: 0;
   font-family: Arial;
-  background: #0f172a;
+  background: #0a0f1c;
   color: white;
-  padding: 10px;
 }
 
-h1 {
-  text-align: center;
-}
-
-.box {
-  background: #1e293b;
+header {
   padding: 15px;
-  border-radius: 10px;
+  text-align: center;
+  background: #020617;
+  font-weight: bold;
+}
+
+.container {
+  padding: 15px;
+}
+
+.card {
+  background: #121826;
+  padding: 15px;
+  border-radius: 12px;
   margin-bottom: 15px;
 }
 
-input {
+input, button {
   width: 100%;
-  padding: 10px;
-  margin-top: 5px;
+  padding: 12px;
+  margin-top: 8px;
   border-radius: 8px;
   border: none;
 }
 
 button {
-  width: 100%;
-  padding: 12px;
-  margin-top: 10px;
   background: #22c55e;
-  border: none;
-  border-radius: 8px;
   color: white;
   font-weight: bold;
 }
 
-.tabela {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-
-.tabela th, .tabela td {
-  padding: 10px;
-  border-bottom: 1px solid #334155;
-}
-
-.tabela th {
-  background: #020617;
-}
-
-.resumo {
-  background: #020617;
-  padding: 10px;
-  border-radius: 8px;
+canvas {
   margin-top: 10px;
 }
 </style>
@@ -69,99 +57,85 @@ button {
 
 <body>
 
-<h1>📊 Simulador Vivendo de Renda 2026</h1>
+<header>💰 Invest Pro 2026</header>
 
-<div class="box">
-  <label>Renda mensal desejada</label>
-  <input type="number" id="renda" placeholder="Ex: 5000">
+<div class="container">
 
-  <label>Yield anual (%)</label>
-  <input type="number" id="yield" value="9.2">
+<div class="card">
+<label>Renda desejada</label>
+<input type="number" id="renda">
 
-  <button onclick="calcular()">Calcular</button>
+<label>Yield (%)</label>
+<input type="number" id="yield" value="9.2">
+
+<button onclick="calcular()">Simular</button>
 </div>
 
-<div class="resumo" id="resumo"></div>
+<div class="card">
+<h3>📊 Dashboard</h3>
+<canvas id="grafico"></canvas>
+</div>
 
-<div class="box">
-  <h3>Distribuição por Ativos</h3>
+<div class="card">
+<h3>📡 Preços em tempo real</h3>
+<div id="ativos"></div>
+</div>
 
-  <table class="tabela">
-    <thead>
-      <tr>
-        <th>Ativo</th>
-        <th>%</th>
-        <th>Valor (R$)</th>
-      </tr>
-    </thead>
-    <tbody id="tabela"></tbody>
-  </table>
+<div class="card">
+<h3>💸 Dividendos estimados</h3>
+<div id="dividendos"></div>
+</div>
+
 </div>
 
 <script>
-function calcular() {
-  let renda = parseFloat(document.getElementById("renda").value);
-  let yield = parseFloat(document.getElementById("yield").value);
+const ativos = ["PETR4.SA","VALE3.SA","ITSA4.SA","BBAS3.SA"];
 
-  if(!renda || !yield) {
-    alert("Preenche tudo!");
-    return;
+async function carregar() {
+  let lista = document.getElementById("ativos");
+  lista.innerHTML = "";
+
+  for (let ativo of ativos) {
+    let res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ativo}`);
+    let data = await res.json();
+
+    let preco = data.quoteResponse.result[0].regularMarketPrice;
+
+    lista.innerHTML += `<p>${ativo} → R$ ${preco}</p>`;
   }
+}
+
+function calcular() {
+  let renda = document.getElementById("renda").value;
+  let yield = document.getElementById("yield").value;
 
   let capital = (renda * 12) / (yield / 100);
 
-  document.getElementById("resumo").innerHTML = `
-    💰 Capital necessário: R$ ${capital.toLocaleString('pt-BR', {minimumFractionDigits:2})}
-    <br>📈 Yield médio: ${yield}%
-  `;
+  document.getElementById("dividendos").innerHTML =
+    `💰 Capital: R$ ${capital.toFixed(2)}<br>
+     📈 Dividendos/mês: R$ ${renda}`;
 
-  let ativos = [
-    {nome: "IPCA+ 2035", pct: 14},
-    {nome: "IPCA+ 2045", pct: 4},
-    {nome: "Pré-fixado", pct: 21},
-    {nome: "Tesouro Selic", pct: 4.7},
-
-    {nome: "FIIs (MXRF, HGLG...)", pct: 28},
-
-    {nome: "PETR4", pct: 2.5},
-    {nome: "ITSA4", pct: 2.5},
-    {nome: "BBAS3", pct: 2.5},
-    {nome: "VALE3", pct: 2.5},
-    {nome: "TAEE11", pct: 2.5},
-    {nome: "EGIE3", pct: 2.5},
-    {nome: "BBSE3", pct: 2.5},
-    {nome: "WEGE3", pct: 2.5}
-  ];
-
-  let tabela = document.getElementById("tabela");
-  tabela.innerHTML = "";
-
-  ativos.forEach(a => {
-    let valor = (capital * a.pct) / 100;
-
-    tabela.innerHTML += `
-      <tr>
-        <td>${a.nome}</td>
-        <td>${a.pct}%</td>
-        <td>R$ ${valor.toLocaleString('pt-BR', {minimumFractionDigits:2})}</td>
-      </tr>
-    `;
-  });
-
-  // salvar automático
-  localStorage.setItem("renda", renda);
-  localStorage.setItem("yield", yield);
+  gerarGrafico(capital);
 }
 
-// carregar dados salvos
-window.onload = function() {
-  let renda = localStorage.getItem("renda");
-  let yield = localStorage.getItem("yield");
+function gerarGrafico(capital) {
+  new Chart(document.getElementById("grafico"), {
+    type: 'doughnut',
+    data: {
+      labels: ["Renda Fixa", "FIIs", "Ações"],
+      datasets: [{
+        data: [40, 30, 30]
+      }]
+    }
+  });
+}
 
-  if(renda) document.getElementById("renda").value = renda;
-  if(yield) document.getElementById("yield").value = yield;
+carregar();
+setInterval(carregar, 10000);
 
-  if(renda && yield) calcular();
+// SERVICE WORKER
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
 }
 </script>
 
