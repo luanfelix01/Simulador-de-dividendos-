@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -11,129 +10,171 @@
 
 <style>
 body {
-  margin: 0;
+  margin:0;
   font-family: Arial;
-  background: #0a0f1c;
-  color: white;
+  background:#0a0f1c;
+  color:white;
 }
 
 header {
-  padding: 15px;
-  text-align: center;
-  background: #020617;
-  font-weight: bold;
+  padding:15px;
+  text-align:center;
+  background:#020617;
+  font-weight:bold;
 }
 
 .container {
-  padding: 15px;
+  padding:15px;
 }
 
 .card {
-  background: #121826;
-  padding: 15px;
-  border-radius: 12px;
-  margin-bottom: 15px;
+  background:#121826;
+  padding:15px;
+  border-radius:12px;
+  margin-bottom:15px;
 }
 
 input, button {
-  width: 100%;
-  padding: 12px;
-  margin-top: 8px;
-  border-radius: 8px;
-  border: none;
+  width:100%;
+  padding:10px;
+  margin-top:8px;
+  border-radius:8px;
+  border:none;
 }
 
 button {
-  background: #22c55e;
-  color: white;
-  font-weight: bold;
+  background:#22c55e;
+  color:white;
+  font-weight:bold;
 }
 
-canvas {
-  margin-top: 10px;
+.tabela {
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+
+.tabela td {
+  padding:8px;
+  border-bottom:1px solid #1f2937;
 }
 </style>
 </head>
 
 <body>
 
-<header>💰 Invest Pro 2026</header>
+<header>💰 Invest Pro PRO</header>
 
 <div class="container">
 
 <div class="card">
-<label>Renda desejada</label>
-<input type="number" id="renda">
-
-<label>Yield (%)</label>
-<input type="number" id="yield" value="9.2">
-
-<button onclick="calcular()">Simular</button>
+<h3>➕ Adicionar Ativo</h3>
+<input id="ativo" placeholder="Ex: PETR4.SA">
+<input id="quantidade" type="number" placeholder="Quantidade">
+<button onclick="adicionar()">Adicionar</button>
 </div>
 
 <div class="card">
-<h3>📊 Dashboard</h3>
+<h3>📊 Carteira</h3>
+<table class="tabela" id="tabela"></table>
+</div>
+
+<div class="card">
+<h3>📈 Distribuição</h3>
 <canvas id="grafico"></canvas>
 </div>
 
 <div class="card">
-<h3>📡 Preços em tempo real</h3>
-<div id="ativos"></div>
-</div>
-
-<div class="card">
-<h3>💸 Dividendos estimados</h3>
+<h3>💸 Dividendos</h3>
 <div id="dividendos"></div>
 </div>
 
 </div>
 
 <script>
-const ativos = ["PETR4.SA","VALE3.SA","ITSA4.SA","BBAS3.SA"];
+let carteira = JSON.parse(localStorage.getItem("carteira")) || [];
 
-async function carregar() {
-  let lista = document.getElementById("ativos");
-  lista.innerHTML = "";
+async function adicionar() {
+  let ativo = document.getElementById("ativo").value;
+  let qtd = document.getElementById("quantidade").value;
 
-  for (let ativo of ativos) {
-    let res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ativo}`);
+  if(!ativo || !qtd) return alert("Preenche tudo");
+
+  let res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ativo}`);
+  let data = await res.json();
+
+  let preco = data.quoteResponse.result[0].regularMarketPrice;
+
+  carteira.push({
+    ativo,
+    qtd,
+    preco
+  });
+
+  salvar();
+  atualizar();
+}
+
+function salvar() {
+  localStorage.setItem("carteira", JSON.stringify(carteira));
+}
+
+async function atualizar() {
+  let tabela = document.getElementById("tabela");
+  tabela.innerHTML = "";
+
+  let total = 0;
+  let labels = [];
+  let valores = [];
+
+  for (let item of carteira) {
+    let res = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${item.ativo}`);
     let data = await res.json();
 
     let preco = data.quoteResponse.result[0].regularMarketPrice;
+    let valor = preco * item.qtd;
 
-    lista.innerHTML += `<p>${ativo} → R$ ${preco}</p>`;
+    total += valor;
+
+    labels.push(item.ativo);
+    valores.push(valor);
+
+    tabela.innerHTML += `
+      <tr>
+        <td>${item.ativo}</td>
+        <td>${item.qtd}</td>
+        <td>R$ ${valor.toFixed(2)}</td>
+      </tr>
+    `;
   }
+
+  gerarGrafico(labels, valores);
+  calcularDividendos(total);
 }
 
-function calcular() {
-  let renda = document.getElementById("renda").value;
-  let yield = document.getElementById("yield").value;
-
-  let capital = (renda * 12) / (yield / 100);
-
-  document.getElementById("dividendos").innerHTML =
-    `💰 Capital: R$ ${capital.toFixed(2)}<br>
-     📈 Dividendos/mês: R$ ${renda}`;
-
-  gerarGrafico(capital);
-}
-
-function gerarGrafico(capital) {
+function gerarGrafico(labels, valores) {
   new Chart(document.getElementById("grafico"), {
     type: 'doughnut',
     data: {
-      labels: ["Renda Fixa", "FIIs", "Ações"],
+      labels: labels,
       datasets: [{
-        data: [40, 30, 30]
+        data: valores
       }]
     }
   });
 }
 
-carregar();
-setInterval(carregar, 10000);
+function calcularDividendos(total) {
+  let rendimento = total * 0.009; // média mensal 0.9%
 
-// SERVICE WORKER
+  document.getElementById("dividendos").innerHTML =
+    `💰 Total investido: R$ ${total.toFixed(2)}<br>
+     📈 Renda mensal estimada: R$ ${rendimento.toFixed(2)}`;
+}
+
+atualizar();
+
+// service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js');
 }
